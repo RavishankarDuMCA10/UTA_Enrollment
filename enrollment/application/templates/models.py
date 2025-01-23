@@ -4,31 +4,34 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from pymongo import errors
 
 class User():
-    def __init__(self, user_id=None, first_name=None, last_name=None, email=None, password=None):
-        self.user_id = user_id
+    def __init__(self, id=None, first_name=None, last_name=None, email=None, password=None):
+        self.id = id
         self.first_name = first_name
         self.last_name = last_name
         self.email = email
         self.password = password
 
     def create_unique_index(self):
-        mongo.db.user.create_index(['user_id', 1], unique=True)
+        mongo.db.user.create_index(['id', 1], unique=True)
 
     def set_password(self, password):
         self.password = generate_password_hash(password)
 
-    def get_password(self, password):
-        return check_password_hash(self.password, password)
+    def get_password(self, user_db_password, password):
+        if not user_db_password:
+            print(f"not self.password: {user_db_password}")
+            return False
+        return check_password_hash(user_db_password, password)
 
     def save(self):
 
-        if not self.user_id or not self.first_name or not self.last_name or not self.email or not self.password:
+        if not self.id or not self.first_name or not self.last_name or not self.email or not self.password:
             print("Error: User attributes are not fully set.")
             return
         
         """Save the user to the MongoDB collection"""
         user_data = {
-            "user_id": self.user_id,
+            "id": self.id,
             "first_name": self.first_name,
             "last_name": self.last_name,
             "email": self.email,
@@ -41,9 +44,17 @@ class User():
         except errors.DuplicateKeyError:
             print(f"Error: The user_id: {self.user_id} already exists.")
     
-    def getUsers(self, email):
+    def getUser(self, email):
         users_collection = mongo.db['user']
         return users_collection.find_one({'email': email})
+    
+    def getUsers(self):
+        users_collection = mongo.db['user']
+        try:
+            all_users = list(users_collection.find())
+        except errors.CollectionInvalid:
+            print(f"Error: Unable to get all users.")
+        return all_users
 
 class Course():
     def __init__(self, course_id, title, description, credits, term):
