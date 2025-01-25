@@ -30,8 +30,13 @@ def login():
 
 @app.route("/courses")
 @app.route("/courses/<term>")
-def courses(term="Spring 2019"):
-    return render_template("courses.html", courseData=courseData, courses=True, term=term)
+def courses(term=None):
+    if term is None:
+        term="Spring 2019"
+
+    course_collection = Course()
+    classes = course_collection.getCourses(sort_by="courseID")
+    return render_template("courses.html", courseData=classes, courses=True, term=term)
 
 @app.route("/register", methods=['POST', 'GET'])
 def register():
@@ -56,12 +61,69 @@ def register():
 
     return render_template("register.html", title="Register", form=form, register=True)
 
+
+
 @app.route("/enrollment", methods=["GET", "POST"])
 def enrollment():
-    id = request.form.get('courseID')
-    title = request.form.get('title')
+    courseID = request.form.get('courseID')
+    courseTitle = request.form.get('title')
+
+    user_id = 1
+
+    if courseID:
+        print(f"courseID: {courseID}")
+        enrollment_collection = Enrollment()
+        print(f"enrollment_collection: {enrollment_collection.getEnrollment(user_id=user_id, courseID=courseID)}")
+        if enrollment_collection.getEnrollment(user_id=user_id, courseID=courseID):
+            flash(f"Oops! You are already registred in this course {courseTitle}!", "danger")
+            return redirect(url_for("courses"))
+        else:
+            enrollment = Enrollment(user_id=user_id, courseID=courseID)
+            enrollment.save()
+            flash(f"You are enrolled in {courseTitle}!", "success")
+
+    user_object = User()
+    classes = list(user_object.aggregate([
+            {
+                '$lookup': {
+                    'from': 'enrollment', 
+                    'localField': 'id', 
+                    'foreignField': 'user_id', 
+                    'as': 'r1'
+                }
+            }, {
+                '$unwind': {
+                    'path': '$r1', 
+                    'includeArrayIndex': 'r1_id', 
+                    'preserveNullAndEmptyArrays': False
+                }
+            }, {
+                '$lookup': {
+                    'from': 'course', 
+                    'localField': 'r1.courseID', 
+                    'foreignField': 'courseID', 
+                    'as': 'r2'
+                }
+            }, {
+                '$unwind': {
+                    'path': '$r2', 
+                    'preserveNullAndEmptyArrays': False
+                }
+            }, {
+                '$match': {
+                    'id': user_id
+                }
+            }, {
+                '$sort': {
+                    'courseID': 1
+                }
+            }
+        ]))
     term = request.form.get('term')
-    return render_template("enrollment.html", enrollment=True, data={"id":id, "title":title, "term":term})
+    return render_template("enrollment.html", enrollment=True, title="Enrollment", classes=classes)
+
+
+
 
 @app.route("/api/")
 @app.route("/api/<idx>")
