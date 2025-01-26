@@ -3,6 +3,8 @@ from flask import Response, json, render_template, request, redirect, flash, url
 from application.templates.models import User, Course, Enrollment
 from application.forms import LoginForm, RegisterForm
 from werkzeug.security import generate_password_hash, check_password_hash
+from flask_restx import Resource
+from application.course_list import course_list
 
 courseData = [{"courseID":"1111","title":"PHP 101","description":"Intro to PHP","credits":3,"term":"Fall, Spring"}, {"courseID":"2222","title":"Java 1","description":"Intro to Java Programming","credits":4,"term":"Spring"}, {"courseID":"3333","title":"Adv PHP 201","description":"Advanced PHP Programming","credits":3,"term":"Fall"}, {"courseID":"4444","title":"Angular 1","description":"Intro to Angular","credits":3,"term":"Fall, Spring"}, {"courseID":"5555","title":"Java 2","description":"Advanced Java Programming","credits":4,"term":"Fall"}]
 
@@ -101,44 +103,9 @@ def enrollment():
             enrollment = Enrollment(user_id=user_id, courseID=courseID)
             enrollment.save()
             flash(f"You are enrolled in {courseTitle}!", "success")
+    
+    classes = course_list(user_id)
 
-    user_object = User()
-    classes = list(user_object.aggregate([
-            {
-                '$lookup': {
-                    'from': 'enrollment', 
-                    'localField': 'id', 
-                    'foreignField': 'user_id', 
-                    'as': 'r1'
-                }
-            }, {
-                '$unwind': {
-                    'path': '$r1', 
-                    'includeArrayIndex': 'r1_id', 
-                    'preserveNullAndEmptyArrays': False
-                }
-            }, {
-                '$lookup': {
-                    'from': 'course', 
-                    'localField': 'r1.courseID', 
-                    'foreignField': 'courseID', 
-                    'as': 'r2'
-                }
-            }, {
-                '$unwind': {
-                    'path': '$r2', 
-                    'preserveNullAndEmptyArrays': False
-                }
-            }, {
-                '$match': {
-                    'id': user_id
-                }
-            }, {
-                '$sort': {
-                    'courseID': 1
-                }
-            }
-        ]))
     term = request.form.get('term')
     return render_template("enrollment.html", enrollment=True, title="Enrollment", classes=classes)
 

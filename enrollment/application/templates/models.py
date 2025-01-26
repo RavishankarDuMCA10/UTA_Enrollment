@@ -48,6 +48,10 @@ class User():
         users_collection = mongo.db['user']
         return users_collection.find_one({'email': email})
     
+    def getUserWithId(self, id):
+        users_collection = mongo.db['user']
+        return users_collection.find_one({'id': id})
+    
     def getUsers(self):
         users_collection = mongo.db['user']
         try:
