@@ -1,5 +1,5 @@
 from application import app, mongo
-from flask import Response, json, render_template, request, redirect, flash, url_for
+from flask import Response, json, render_template, request, redirect, flash, url_for, session
 from application.templates.models import User, Course, Enrollment
 from application.forms import LoginForm, RegisterForm
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -14,6 +14,9 @@ def index():
 
 @app.route("/login", methods=['GET', 'POST'])
 def login():
+    if session.get('username'):
+        return redirect(url_for('index'))
+    
     form = LoginForm()
     if form.validate_on_submit():
         
@@ -23,10 +26,20 @@ def login():
         user = user_collection.getUser(email=email)        
         if user and user_collection.get_password(user['password'] ,password):
             flash(f"{user['first_name']}, You are successfuly logged in!", "success")
+            session['user_id'] = user['id']
+            session['username'] = user['first_name']
             return redirect("/index")
         else:
             flash("Sorry, something went wrong.", "danger")
     return render_template("login.html", title="Login", form=form, login=True)
+
+
+@app.route("/logout")
+def logout():
+    session['user_id'] = False
+    session.pop('username', None)
+    return redirect(url_for('index'))
+
 
 @app.route("/courses")
 @app.route("/courses/<term>")
@@ -40,6 +53,9 @@ def courses(term=None):
 
 @app.route("/register", methods=['POST', 'GET'])
 def register():
+    if session.get('username'):
+        return redirect(url_for('index'))
+    
     form = RegisterForm()
     if form.validate_on_submit():
         user_object = User()        
@@ -65,10 +81,14 @@ def register():
 
 @app.route("/enrollment", methods=["GET", "POST"])
 def enrollment():
+
+    if not session.get('username'):
+        return redirect(url_for('login'))
+    
     courseID = request.form.get('courseID')
     courseTitle = request.form.get('title')
 
-    user_id = 1
+    user_id = session.get('user_id')
 
     if courseID:
         print(f"courseID: {courseID}")
